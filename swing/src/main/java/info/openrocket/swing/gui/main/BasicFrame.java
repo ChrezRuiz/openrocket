@@ -826,6 +826,19 @@ private static final Translator trans = Application.getTranslator();
 		});
 		toolsMenu.add(item);
 
+		////	Motor Sweep
+		item = new JMenuItem("Motor Sweep...", KeyEvent.VK_M);
+		item.getAccessibleContext().setAccessibleDescription("Sweep all qualifying motors and compare results");
+		item.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				log.info(Markers.USER_MARKER, "Motor sweep selected");
+				new info.openrocket.swing.gui.dialogs.motorsweep.MotorSweepDialog(document, BasicFrame.this)
+						.setVisible(true);
+			}
+		});
+		toolsMenu.add(item);
+
 		////	Custom expressions
 		item = new JMenuItem(trans.get("main.menu.tools.customExpressions"), KeyEvent.VK_E);
 		item.getAccessibleContext().setAccessibleDescription(trans.get("main.menu.tools.customExpressions.desc"));

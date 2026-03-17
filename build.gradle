@@ -73,6 +73,11 @@ subprojects {
     apply plugin: "org.javamodularity.moduleplugin"
     apply plugin: 'jacoco'
 
+    // Ensure consistent UTF-8 encoding across platforms
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
+
     // Configure the gradle-modules-plugin
     modularity {
         standardJavaRelease(17) // For targeting Java 17
@@ -82,6 +87,11 @@ subprojects {
     test {
         useJUnitPlatform()
         finalizedBy jacocoTestReport
+
+        // Run tests on classpath to avoid Windows command line length limit (error 206)
+        moduleOptions {
+            runOnClasspath = true
+        }
 
         testLogging {
             events 'PASSED', 'FAILED', 'SKIPPED', 'STANDARD_OUT'
@@ -187,4 +197,39 @@ tasks.register('dist') {
     doLast {
         println "Completed the deployable jar in './build/libs"
     }
+}
+
+// Create a Windows application image with bundled JRE using jpackage (JDK 17+)
+tasks.register('jpackageWin', Exec) {
+    group = 'info.openrocket'
+    description = 'Creates a Windows application image with bundled JRE using jpackage'
+    dependsOn 'shadowJar'
+
+    def jpackageExe = "${System.getenv('JAVA_HOME')}/bin/jpackage"
+    def shadowJarFile = tasks.named('shadowJar', ShadowJar).flatMap { it.archiveFile }
+
+    doFirst {
+        def outputDir = file("${buildDir}/jpackage")
+        if (outputDir.exists()) {
+            delete(outputDir)
+        }
+    }
+
+    commandLine jpackageExe,
+        '--input', "${buildDir}/libs",
+        '--main-jar', shadowJarFile.get().asFile.name,
+        '--name', 'OpenRocket',
+        '--app-version', '1.0.0',
+        '--vendor', 'OpenRocket',
+        '--description', 'Model-rocketry simulation with Motor Sweep',
+        '--type', 'app-image',
+        '--dest', "${buildDir}/jpackage",
+        '--java-options', '-Dsun.java2d.noddraw=true',
+        '--java-options', '-Dsun.java2d.d3d=false',
+        '--java-options', '-Dsun.java2d.ddforcevram=true',
+        '--java-options', '-Dsun.java2d.ddblit=false',
+        '--java-options', '-Dswing.useflipBufferStrategy=True',
+        '--java-options', '--add-exports=java.base/java.lang=ALL-UNNAMED',
+        '--java-options', '--add-exports=java.desktop/sun.awt=ALL-UNNAMED',
+        '--java-options', '--add-exports=java.desktop/sun.java2d=ALL-UNNAMED'
 }
