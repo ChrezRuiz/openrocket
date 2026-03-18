@@ -230,7 +230,7 @@ public class MotorSweepDialog extends JDialog {
 		scatterPanel.updateChart(results, targetApogee, tolerance, summary,
 				maxGLOM, minTWR, showFiltered);
 		tablePanel.setResults(results, targetApogee, tolerance, maxGLOM, minTWR,
-				autoFillBallast, showFiltered, null);
+				autoFillBallast, showFiltered, summary.getBestResult());
 
 		applyButton.setEnabled(summary.getPassingCount() > 0);
 	}
@@ -243,7 +243,8 @@ public class MotorSweepDialog extends JDialog {
 		scatterPanel.updateChart(lastResults, lastTargetApogee, lastTolerance,
 				lastSummary, lastMaxGLOM, lastMinTWR, showFiltered);
 		tablePanel.setResults(lastResults, lastTargetApogee, lastTolerance,
-				lastMaxGLOM, lastMinTWR, lastAutoFillBallast, showFiltered, null);
+				lastMaxGLOM, lastMinTWR, lastAutoFillBallast, showFiltered,
+				lastSummary != null ? lastSummary.getBestResult() : null);
 	}
 
 	private void openApplyDialog() {

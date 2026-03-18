@@ -30,6 +30,7 @@ public class MotorSweepTablePanel extends JPanel {
 	private static final Color ERROR_COLOR = new Color(255, 200, 200);
 	private static final Color FILTERED_COLOR = new Color(220, 220, 220);
 	private static final Color INFEASIBLE_COLOR = new Color(255, 255, 200);
+	private static final Color BEST_COLOR = new Color(255, 140, 0);
 
 	private static final String[] COLUMNS = {
 		"Motor", "Manufacturer", "Diameter (mm)", "Length (mm)", "Class",
@@ -215,6 +216,10 @@ public class MotorSweepTablePanel extends JPanel {
 		SweepStatus getStatus(int row) {
 			return displayStatuses.get(row);
 		}
+
+		MotorSweepResult getBestResult() {
+			return bestResult;
+		}
 	}
 
 	private class SweepCellRenderer extends DefaultTableCellRenderer {
@@ -225,30 +230,36 @@ public class MotorSweepTablePanel extends JPanel {
 					isSelected, hasFocus, row, column);
 			if (!isSelected) {
 				int modelRow = table.convertRowIndexToModel(row);
-				SweepStatus status = tableModel.getStatus(modelRow);
-				switch (status) {
-					case PASS:
-						c.setBackground(PASS_COLOR);
-						c.setForeground(Color.BLACK);
-						break;
-					case FILTERED_GLOM:
-					case FILTERED_TWR:
-					case FILTERED_BOTH:
-						c.setBackground(FILTERED_COLOR);
-						c.setForeground(Color.GRAY);
-						break;
-					case INFEASIBLE:
-						c.setBackground(INFEASIBLE_COLOR);
-						c.setForeground(Color.DARK_GRAY);
-						break;
-					case ERROR:
-						c.setBackground(ERROR_COLOR);
-						c.setForeground(Color.BLACK);
-						break;
-					default:
-						c.setBackground(Color.WHITE);
-						c.setForeground(Color.BLACK);
-						break;
+				MotorSweepResult result = tableModel.displayResults.get(modelRow);
+				if (result == tableModel.getBestResult()) {
+					c.setBackground(BEST_COLOR);
+					c.setForeground(Color.WHITE);
+				} else {
+					SweepStatus status = tableModel.getStatus(modelRow);
+					switch (status) {
+						case PASS:
+							c.setBackground(PASS_COLOR);
+							c.setForeground(Color.BLACK);
+							break;
+						case FILTERED_GLOM:
+						case FILTERED_TWR:
+						case FILTERED_BOTH:
+							c.setBackground(FILTERED_COLOR);
+							c.setForeground(Color.GRAY);
+							break;
+						case INFEASIBLE:
+							c.setBackground(INFEASIBLE_COLOR);
+							c.setForeground(Color.DARK_GRAY);
+							break;
+						case ERROR:
+							c.setBackground(ERROR_COLOR);
+							c.setForeground(Color.BLACK);
+							break;
+						default:
+							c.setBackground(Color.WHITE);
+							c.setForeground(Color.BLACK);
+							break;
+					}
 				}
 			}
 			return c;
