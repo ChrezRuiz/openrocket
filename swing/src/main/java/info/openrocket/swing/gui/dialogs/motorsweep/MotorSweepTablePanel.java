@@ -5,9 +5,11 @@ import java.awt.Component;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JToggleButton;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 
@@ -37,6 +39,8 @@ public class MotorSweepTablePanel extends JPanel {
 
 	private final SweepTableModel tableModel;
 	private final JTable table;
+	private final JToggleButton passOnlyToggle;
+	private final JButton exportButton;
 
 	public MotorSweepTablePanel() {
 		super(new MigLayout("fill, ins 0"));
@@ -46,6 +50,19 @@ public class MotorSweepTablePanel extends JPanel {
 		table.setDefaultRenderer(Object.class, new SweepCellRenderer());
 		table.setDefaultRenderer(Number.class, new SweepCellRenderer());
 		table.setFillsViewportHeight(true);
+
+		JPanel toolbar = new JPanel(new MigLayout("ins 0, gap 5", "[][]push", ""));
+		passOnlyToggle = new JToggleButton("Show Only Passing");
+		passOnlyToggle.setEnabled(false);
+		exportButton = new JButton("Export CSV...");
+		exportButton.setEnabled(false);
+		toolbar.add(passOnlyToggle);
+		toolbar.add(exportButton);
+		add(toolbar, "growx, wrap");
+
+		passOnlyToggle.addActionListener(e -> {
+			tableModel.setPassOnly(passOnlyToggle.isSelected());
+		});
 
 		JScrollPane scrollPane = new JScrollPane(table);
 		add(scrollPane, "grow, push");
@@ -57,6 +74,9 @@ public class MotorSweepTablePanel extends JPanel {
 			MotorSweepResult bestResult) {
 		tableModel.setResults(results, targetApogee, tolerance, maxGLOM, minTWR,
 				autoFillBallast, showFiltered, bestResult);
+		passOnlyToggle.setSelected(false);
+		passOnlyToggle.setEnabled(true);
+		exportButton.setEnabled(true);
 	}
 
 	private class SweepTableModel extends AbstractTableModel {
