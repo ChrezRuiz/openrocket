@@ -53,40 +53,70 @@ public class MotorSweepTablePanel extends JPanel {
 
 	public void setResults(List<MotorSweepResult> results, double targetApogee,
 			double tolerance, Double maxGLOM, Double minTWR,
-			boolean autoFillBallast, boolean showFiltered) {
+			boolean autoFillBallast, boolean showFiltered,
+			MotorSweepResult bestResult) {
 		tableModel.setResults(results, targetApogee, tolerance, maxGLOM, minTWR,
-				autoFillBallast, showFiltered);
+				autoFillBallast, showFiltered, bestResult);
 	}
 
 	private class SweepTableModel extends AbstractTableModel {
 		private List<MotorSweepResult> displayResults = new ArrayList<>();
 		private List<SweepStatus> displayStatuses = new ArrayList<>();
+		private List<MotorSweepResult> allResults = new ArrayList<>();
+		private List<SweepStatus> allStatuses = new ArrayList<>();
+		private boolean passOnly;
+		private boolean lastShowFiltered;
 		private double target;
 		private boolean showBallast;
+		private MotorSweepResult bestResult;
 
-		void setResults(List<MotorSweepResult> results, double target, double tol,
-				Double maxGLOM, Double minTWR, boolean autoFillBallast,
-				boolean showFiltered) {
-			this.target = target;
-			this.showBallast = autoFillBallast;
-			this.displayResults = new ArrayList<>();
-			this.displayStatuses = new ArrayList<>();
+		void applyFilter() {
+			displayResults = new ArrayList<>();
+			displayStatuses = new ArrayList<>();
 
-			for (MotorSweepResult r : results) {
-				SweepStatus status = MotorSweepSummary.classifyResult(r, target, tol,
-						maxGLOM, minTWR);
+			for (int i = 0; i < allResults.size(); i++) {
+				SweepStatus status = allStatuses.get(i);
+
+				if (passOnly && status != SweepStatus.PASS) {
+					continue;
+				}
 
 				boolean isFiltered = status == SweepStatus.FILTERED_GLOM
 						|| status == SweepStatus.FILTERED_TWR
 						|| status == SweepStatus.FILTERED_BOTH
 						|| status == SweepStatus.INFEASIBLE;
 
-				if (!isFiltered || showFiltered) {
-					displayResults.add(r);
+				if (!isFiltered || lastShowFiltered) {
+					displayResults.add(allResults.get(i));
 					displayStatuses.add(status);
 				}
 			}
 			fireTableDataChanged();
+		}
+
+		void setResults(List<MotorSweepResult> results, double target, double tol,
+				Double maxGLOM, Double minTWR, boolean autoFillBallast,
+				boolean showFiltered, MotorSweepResult bestResult) {
+			this.target = target;
+			this.showBallast = autoFillBallast;
+			this.bestResult = bestResult;
+			this.lastShowFiltered = showFiltered;
+			this.passOnly = false;
+			this.allResults = new ArrayList<>();
+			this.allStatuses = new ArrayList<>();
+
+			for (MotorSweepResult r : results) {
+				SweepStatus status = MotorSweepSummary.classifyResult(r, target, tol,
+						maxGLOM, minTWR);
+				allResults.add(r);
+				allStatuses.add(status);
+			}
+			applyFilter();
+		}
+
+		void setPassOnly(boolean passOnly) {
+			this.passOnly = passOnly;
+			applyFilter();
 		}
 
 		@Override
