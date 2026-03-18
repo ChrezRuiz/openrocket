@@ -2,14 +2,21 @@ package info.openrocket.swing.gui.dialogs.motorsweep;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JToggleButton;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 
@@ -64,6 +71,7 @@ public class MotorSweepTablePanel extends JPanel {
 		passOnlyToggle.addActionListener(e -> {
 			tableModel.setPassOnly(passOnlyToggle.isSelected());
 		});
+		exportButton.addActionListener(e -> exportCsv());
 
 		JScrollPane scrollPane = new JScrollPane(table);
 		add(scrollPane, "grow, push");
@@ -78,6 +86,77 @@ public class MotorSweepTablePanel extends JPanel {
 		passOnlyToggle.setSelected(false);
 		passOnlyToggle.setEnabled(true);
 		exportButton.setEnabled(true);
+	}
+
+	static String csvEscape(String value) {
+		if (value == null) {
+			return "";
+		}
+		if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+			return "\"" + value.replace("\"", "\"\"") + "\"";
+		}
+		return value;
+	}
+
+	private void exportCsv() {
+		// Step 1: Ask what to export
+		String[] options = {"Export All Results", "Export Only Passing Results", "Cancel"};
+		int choice = JOptionPane.showOptionDialog(this,
+				"Which results do you want to export?",
+				"Export CSV",
+				JOptionPane.DEFAULT_OPTION,
+				JOptionPane.QUESTION_MESSAGE,
+				null, options, options[0]);
+
+		if (choice == 2 || choice == JOptionPane.CLOSED_OPTION) {
+			return;
+		}
+		boolean passingOnly = (choice == 1);
+
+		// Step 2: File chooser
+		JFileChooser fileChooser = new JFileChooser();
+		fileChooser.setSelectedFile(new File("motor-sweep-results.csv"));
+		fileChooser.setFileFilter(new FileNameExtensionFilter(
+				"CSV files (*.csv)", "csv"));
+		if (fileChooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+			return;
+		}
+
+		File file = fileChooser.getSelectedFile();
+		if (!file.getName().toLowerCase().endsWith(".csv")) {
+			file = new File(file.getAbsolutePath() + ".csv");
+		}
+
+		// Step 3: Write CSV
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+			// Header
+			for (int c = 0; c < COLUMNS.length; c++) {
+				if (c > 0) writer.write(",");
+				writer.write(csvEscape(COLUMNS[c]));
+			}
+			writer.newLine();
+
+			// Rows from allResults (full set)
+			List<MotorSweepResult> exportResults = tableModel.allResults;
+			List<SweepStatus> exportStatuses = tableModel.allStatuses;
+
+			for (int i = 0; i < exportResults.size(); i++) {
+				if (passingOnly && exportStatuses.get(i) != SweepStatus.PASS) {
+					continue;
+				}
+				for (int c = 0; c < COLUMNS.length; c++) {
+					if (c > 0) writer.write(",");
+					Object val = tableModel.getExportValueAt(i, c);
+					writer.write(csvEscape(val != null ? val.toString() : ""));
+				}
+				writer.newLine();
+			}
+		} catch (IOException ex) {
+			JOptionPane.showMessageDialog(this,
+					"Failed to export CSV: " + ex.getMessage(),
+					"Export Error",
+					JOptionPane.ERROR_MESSAGE);
+		}
 	}
 
 	private class SweepTableModel extends AbstractTableModel {
@@ -165,6 +244,44 @@ public class MotorSweepTablePanel extends JPanel {
 		public Object getValueAt(int row, int col) {
 			MotorSweepResult r = displayResults.get(row);
 			SweepStatus status = displayStatuses.get(row);
+			ThrustCurveMotor m = r.getMotor();
+
+			switch (col) {
+				case 0: return m.getDesignation();
+				case 1: return m.getManufacturer().getDisplayName();
+				case 2: return Math.round(m.getDiameter() * 1000.0);
+				case 3: return Math.round(m.getLength() * 1000.0);
+				case 4: return r.getImpulseClass();
+				case 5: return r.isSuccess()
+						? String.format("%.1f", r.getTotalImpulse()) : "-";
+				case 6: return r.isSuccess()
+						? String.format("%.1f", r.getMaxThrust()) : "-";
+				case 7: return r.isSuccess()
+						? String.format("%.2f", r.getTwr()) : "-";
+				case 8: return r.isSuccess()
+						? UnitGroup.UNITS_DISTANCE.getDefaultUnit()
+								.toStringUnit(r.getApogee())
+						: "-";
+				case 9: return r.isSuccess()
+						? String.format("%+.1f", r.getApogee() - target) : "-";
+				case 10: return r.isSuccess()
+						? String.format("%.3f", r.getLaunchMass()) : "-";
+				case 11:
+					if (!showBallast) return "-";
+					return r.isSuccess()
+							? String.format("%.3f", r.getBallastMass()) : "-";
+				case 12:
+					if (!showBallast) return "-";
+					return r.isSuccess() && !Double.isNaN(r.getStabilityCaliber())
+							? String.format("%.2f", r.getStabilityCaliber()) : "-";
+				case 13: return getStatusText(status, r);
+				default: return "";
+			}
+		}
+
+		Object getExportValueAt(int index, int col) {
+			MotorSweepResult r = allResults.get(index);
+			SweepStatus status = allStatuses.get(index);
 			ThrustCurveMotor m = r.getMotor();
 
 			switch (col) {
