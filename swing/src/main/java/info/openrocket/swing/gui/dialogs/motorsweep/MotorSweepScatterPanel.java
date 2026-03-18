@@ -4,6 +4,7 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Shape;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Line2D;
 import java.util.List;
 
 import javax.swing.JPanel;
@@ -23,6 +24,7 @@ import org.jfree.data.xy.XYSeriesCollection;
 
 import info.openrocket.core.motorsweep.MotorSweepResult;
 import info.openrocket.core.motorsweep.MotorSweepSummary;
+import info.openrocket.core.motorsweep.SweepStatus;
 
 /**
  * Scatter plot of Total Impulse vs. Apogee with target band.
@@ -52,17 +54,30 @@ public class MotorSweepScatterPanel extends JPanel {
 	}
 
 	public void updateChart(List<MotorSweepResult> results, double targetApogee,
-			double tolerance, MotorSweepSummary summary) {
+			double tolerance, MotorSweepSummary summary,
+			Double maxGLOM, Double minTWR, boolean showFiltered) {
 
 		XYSeries passingSeries = new XYSeries("Passing");
-		XYSeries failingSeries = new XYSeries("Outside Range");
-		XYSeries errorSeries = new XYSeries("Error");
+		XYSeries outsideRangeSeries = new XYSeries("Outside Range");
+		XYSeries filteredSeries = new XYSeries("Filtered");
+		XYSeries infeasibleSeries = new XYSeries("Infeasible");
 		XYSeries bestSeries = new XYSeries("Best");
 
 		MotorSweepResult best = summary != null ? summary.getBestResult() : null;
 
 		for (MotorSweepResult r : results) {
-			if (!r.isSuccess()) {
+			SweepStatus status = MotorSweepSummary.classifyResult(r, targetApogee,
+					tolerance, maxGLOM, minTWR);
+
+			if (status == SweepStatus.ERROR) {
+				continue;
+			}
+
+			if (status == SweepStatus.INFEASIBLE) {
+				if (showFiltered) {
+					// Use totalImpulse as x, 0 as y since we have no apogee
+					infeasibleSeries.add(r.getTotalImpulse(), 0);
+				}
 				continue;
 			}
 
@@ -71,20 +86,24 @@ public class MotorSweepScatterPanel extends JPanel {
 
 			if (r == best) {
 				bestSeries.add(impulse, apogee);
-			} else {
-				boolean passing = apogee >= targetApogee && apogee <= targetApogee + tolerance;
-				if (passing) {
-					passingSeries.add(impulse, apogee);
-				} else {
-					failingSeries.add(impulse, apogee);
-				}
+			} else if (status == SweepStatus.PASS) {
+				passingSeries.add(impulse, apogee);
+			} else if (status == SweepStatus.OUT_OF_RANGE) {
+				outsideRangeSeries.add(impulse, apogee);
+			} else if (showFiltered) {
+				// FILTERED_GLOM, FILTERED_TWR, FILTERED_BOTH
+				filteredSeries.add(impulse, apogee);
 			}
 		}
 
 		XYSeriesCollection dataset = new XYSeriesCollection();
 		dataset.addSeries(passingSeries);
-		dataset.addSeries(failingSeries);
+		dataset.addSeries(outsideRangeSeries);
 		dataset.addSeries(bestSeries);
+		if (showFiltered) {
+			dataset.addSeries(filteredSeries);
+			dataset.addSeries(infeasibleSeries);
+		}
 
 		chart = ChartFactory.createScatterPlot(
 				"Motor Sweep Results",
@@ -110,21 +129,39 @@ public class MotorSweepScatterPanel extends JPanel {
 		XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer(false, true);
 		Shape dot = new Ellipse2D.Double(-4, -4, 8, 8);
 		Shape bigDot = new Ellipse2D.Double(-6, -6, 12, 12);
+		Shape xMark = createXShape(5);
 
-		// Passing = green
+		// 0: Passing = green
 		renderer.setSeriesPaint(0, new Color(0, 180, 0));
 		renderer.setSeriesShape(0, dot);
 
-		// Failing = gray
+		// 1: Outside range = gray
 		renderer.setSeriesPaint(1, Color.GRAY);
 		renderer.setSeriesShape(1, dot);
 
-		// Best = orange, larger
+		// 2: Best = orange, larger
 		renderer.setSeriesPaint(2, new Color(255, 140, 0));
 		renderer.setSeriesShape(2, bigDot);
+
+		if (showFiltered) {
+			// 3: Filtered = light gray, semi-transparent
+			renderer.setSeriesPaint(3, new Color(180, 180, 180, 120));
+			renderer.setSeriesShape(3, dot);
+
+			// 4: Infeasible = red X
+			renderer.setSeriesPaint(4, new Color(200, 0, 0));
+			renderer.setSeriesShape(4, xMark);
+		}
 
 		plot.setRenderer(renderer);
 
 		chartPanel.setChart(chart);
+	}
+
+	private static Shape createXShape(int size) {
+		java.awt.geom.GeneralPath path = new java.awt.geom.GeneralPath();
+		path.append(new Line2D.Double(-size, -size, size, size), false);
+		path.append(new Line2D.Double(-size, size, size, -size), false);
+		return path;
 	}
 }

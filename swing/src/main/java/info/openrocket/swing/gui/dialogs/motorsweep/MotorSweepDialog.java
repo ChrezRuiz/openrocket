@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -28,6 +29,7 @@ import info.openrocket.core.motorsweep.MotorSweepFilter;
 import info.openrocket.core.motorsweep.MotorSweepResult;
 import info.openrocket.core.motorsweep.MotorSweepRunner;
 import info.openrocket.core.motorsweep.MotorSweepSummary;
+import info.openrocket.core.motorsweep.SweepStatus;
 import info.openrocket.core.rocketcomponent.MotorMount;
 import info.openrocket.core.rocketcomponent.Rocket;
 import info.openrocket.core.startup.Application;
@@ -50,6 +52,7 @@ public class MotorSweepDialog extends JDialog {
 	private final JButton cancelButton;
 	private final JProgressBar progressBar;
 	private final JLabel statusLabel;
+	private final JCheckBox showFilteredCheck;
 
 	private MotorSweepWorker worker;
 
@@ -58,6 +61,9 @@ public class MotorSweepDialog extends JDialog {
 	private MotorSweepSummary lastSummary;
 	private double lastTargetApogee;
 	private double lastTolerance;
+	private Double lastMaxGLOM;
+	private Double lastMinTWR;
+	private boolean lastAutoFillBallast;
 
 	public MotorSweepDialog(OpenRocketDocument document, Window parent) {
 		super(parent, "Motor Sweep", ModalityType.APPLICATION_MODAL);
@@ -71,7 +77,7 @@ public class MotorSweepDialog extends JDialog {
 		mainPanel.add(inputPanel, "growx, wrap");
 
 		// Controls
-		JPanel controlPanel = new JPanel(new MigLayout("ins 0", "[][][][][][grow]", ""));
+		JPanel controlPanel = new JPanel(new MigLayout("ins 0", "[][][][][][grow][]", ""));
 		runButton = new JButton("Run Sweep");
 		cancelButton = new JButton("Cancel");
 		cancelButton.setEnabled(false);
@@ -83,11 +89,16 @@ public class MotorSweepDialog extends JDialog {
 		applyButton.setEnabled(false);
 		applyButton.addActionListener(e -> openApplyDialog());
 
+		showFilteredCheck = new JCheckBox("Show filtered results", true);
+		showFilteredCheck.setEnabled(false);
+		showFilteredCheck.addActionListener(e -> refreshFilteredDisplay());
+
 		controlPanel.add(runButton);
 		controlPanel.add(cancelButton);
 		controlPanel.add(applyButton);
 		controlPanel.add(progressBar, "wmin 200lp, growx");
 		controlPanel.add(statusLabel, "growx");
+		controlPanel.add(showFilteredCheck);
 		mainPanel.add(controlPanel, "growx, wrap");
 
 		// Tabbed pane
@@ -161,22 +172,30 @@ public class MotorSweepDialog extends JDialog {
 
 		double targetApogee = inputPanel.getTargetApogee();
 		double tolerance = inputPanel.getTolerance();
+		Double maxGLOM = inputPanel.getMaxGLOM();
+		Double minTWR = inputPanel.getMinTWR();
+		boolean autoFillBallast = inputPanel.isAutoFillBallast();
+		double targetStabilityCaliber = inputPanel.getTargetStabilityCaliber();
 
-		worker = new MotorSweepWorker(document, rocket, motors, new MotorSweepWorker.SweepCallback() {
-			@Override
-			public void onProgress(int completed, int total) {
-				progressBar.setValue(completed);
-				statusLabel.setText(String.format("Simulated %d of %d motors...", completed, total));
-			}
+		worker = new MotorSweepWorker(document, rocket, motors,
+				new MotorSweepWorker.SweepCallback() {
+					@Override
+					public void onProgress(int completed, int total) {
+						progressBar.setValue(completed);
+						statusLabel.setText(String.format("Simulated %d of %d motors...",
+								completed, total));
+					}
 
-			@Override
-			public void onComplete(List<MotorSweepResult> results) {
-				displayResults(results, targetApogee, tolerance);
-				runButton.setEnabled(true);
-				cancelButton.setEnabled(false);
-				statusLabel.setText("Complete — " + results.size() + " motors simulated");
-			}
-		});
+					@Override
+					public void onComplete(List<MotorSweepResult> results) {
+						displayResults(results, targetApogee, tolerance, maxGLOM, minTWR,
+								autoFillBallast);
+						runButton.setEnabled(true);
+						cancelButton.setEnabled(false);
+						statusLabel.setText("Complete — " + results.size() + " motors simulated");
+					}
+				},
+				maxGLOM, minTWR, autoFillBallast, targetStabilityCaliber);
 
 		worker.execute();
 	}
@@ -191,19 +210,40 @@ public class MotorSweepDialog extends JDialog {
 		statusLabel.setText("Cancelled");
 	}
 
-	private void displayResults(List<MotorSweepResult> results, double targetApogee, double tolerance) {
-		MotorSweepSummary summary = MotorSweepSummary.compute(results, targetApogee, tolerance);
+	private void displayResults(List<MotorSweepResult> results, double targetApogee,
+			double tolerance, Double maxGLOM, Double minTWR, boolean autoFillBallast) {
+		MotorSweepSummary summary = MotorSweepSummary.compute(results, targetApogee,
+				tolerance, maxGLOM, minTWR);
 
 		lastResults = results;
 		lastSummary = summary;
 		lastTargetApogee = targetApogee;
 		lastTolerance = tolerance;
+		lastMaxGLOM = maxGLOM;
+		lastMinTWR = minTWR;
+		lastAutoFillBallast = autoFillBallast;
 
-		summaryPanel.updateSummary(summary, targetApogee);
-		scatterPanel.updateChart(results, targetApogee, tolerance, summary);
-		tablePanel.setResults(results, targetApogee, tolerance);
+		boolean showFiltered = showFilteredCheck.isSelected();
+		showFilteredCheck.setEnabled(true);
+
+		summaryPanel.updateSummary(summary, targetApogee, autoFillBallast);
+		scatterPanel.updateChart(results, targetApogee, tolerance, summary,
+				maxGLOM, minTWR, showFiltered);
+		tablePanel.setResults(results, targetApogee, tolerance, maxGLOM, minTWR,
+				autoFillBallast, showFiltered);
 
 		applyButton.setEnabled(summary.getPassingCount() > 0);
+	}
+
+	private void refreshFilteredDisplay() {
+		if (lastResults == null) {
+			return;
+		}
+		boolean showFiltered = showFilteredCheck.isSelected();
+		scatterPanel.updateChart(lastResults, lastTargetApogee, lastTolerance,
+				lastSummary, lastMaxGLOM, lastMinTWR, showFiltered);
+		tablePanel.setResults(lastResults, lastTargetApogee, lastTolerance,
+				lastMaxGLOM, lastMinTWR, lastAutoFillBallast, showFiltered);
 	}
 
 	private void openApplyDialog() {
@@ -211,14 +251,12 @@ public class MotorSweepDialog extends JDialog {
 			return;
 		}
 
-		// Filter to passing + successful results
+		// Filter to fully passing results
 		List<MotorSweepResult> passingResults = new ArrayList<>();
 		for (MotorSweepResult r : lastResults) {
-			if (!r.isSuccess()) {
-				continue;
-			}
-			double apogee = r.getApogee();
-			if (apogee >= lastTargetApogee && apogee <= lastTargetApogee + lastTolerance) {
+			SweepStatus status = MotorSweepSummary.classifyResult(r, lastTargetApogee,
+					lastTolerance, lastMaxGLOM, lastMinTWR);
+			if (status == SweepStatus.PASS) {
 				passingResults.add(r);
 			}
 		}

@@ -30,7 +30,23 @@ public class MotorSweepSummary {
 	 * @param tolerance     one-sided tolerance: passing range is [target, target + tolerance]
 	 * @return computed summary
 	 */
-	public static MotorSweepSummary compute(List<MotorSweepResult> results, double targetApogee, double tolerance) {
+	public static MotorSweepSummary compute(List<MotorSweepResult> results,
+			double targetApogee, double tolerance) {
+		return compute(results, targetApogee, tolerance, null, null);
+	}
+
+	/**
+	 * Compute summary statistics from sweep results with optional GLOM/TWR filters.
+	 *
+	 * @param results       the list of sweep results
+	 * @param targetApogee  the desired apogee altitude (m)
+	 * @param tolerance     one-sided tolerance: passing range is [target, target + tolerance]
+	 * @param maxGLOM       maximum gross lift-off mass in kg (null to disable)
+	 * @param minTWR        minimum thrust-to-weight ratio (null to disable)
+	 * @return computed summary
+	 */
+	public static MotorSweepSummary compute(List<MotorSweepResult> results,
+			double targetApogee, double tolerance, Double maxGLOM, Double minTWR) {
 		int passingCount = 0;
 		double sumImpulse = 0;
 		double sumTwr = 0;
@@ -40,37 +56,35 @@ public class MotorSweepSummary {
 		double closestOverallDelta = Double.MAX_VALUE;
 
 		for (MotorSweepResult r : results) {
-			if (!r.isSuccess()) {
-				continue;
-			}
+			SweepStatus status = classifyResult(r, targetApogee, tolerance, maxGLOM, minTWR);
 
-			double apogee = r.getApogee();
-			boolean passing = apogee >= targetApogee && apogee <= targetApogee + tolerance;
-
-			if (passing) {
+			if (status == SweepStatus.PASS) {
 				passingCount++;
 				sumImpulse += r.getTotalImpulse();
 				sumTwr += r.getTwr();
 
-				double delta = Math.abs(apogee - targetApogee);
+				double delta = Math.abs(r.getApogee() - targetApogee);
 				if (delta < bestPassingDelta) {
 					bestPassingDelta = delta;
 					bestPassing = r;
 				}
 			}
 
-			// Track closest to target range for fallback
-			double distToRange;
-			if (apogee < targetApogee) {
-				distToRange = targetApogee - apogee;
-			} else if (apogee > targetApogee + tolerance) {
-				distToRange = apogee - (targetApogee + tolerance);
-			} else {
-				distToRange = 0;
-			}
-			if (distToRange < closestOverallDelta) {
-				closestOverallDelta = distToRange;
-				closestOverall = r;
+			// Track closest to target range for fallback (only successful, non-infeasible)
+			if (r.isSuccess() && !r.isInfeasible()) {
+				double apogee = r.getApogee();
+				double distToRange;
+				if (apogee < targetApogee) {
+					distToRange = targetApogee - apogee;
+				} else if (apogee > targetApogee + tolerance) {
+					distToRange = apogee - (targetApogee + tolerance);
+				} else {
+					distToRange = 0;
+				}
+				if (distToRange < closestOverallDelta) {
+					closestOverallDelta = distToRange;
+					closestOverall = r;
+				}
 			}
 		}
 
@@ -79,6 +93,40 @@ public class MotorSweepSummary {
 		double avgTwr = passingCount > 0 ? sumTwr / passingCount : 0;
 
 		return new MotorSweepSummary(best, passingCount, results.size(), avgImpulse, avgTwr);
+	}
+
+	/**
+	 * Classify a single result's status based on all sweep criteria.
+	 */
+	public static SweepStatus classifyResult(MotorSweepResult result,
+			double targetApogee, double tolerance, Double maxGLOM, Double minTWR) {
+		if (result.isInfeasible()) {
+			return SweepStatus.INFEASIBLE;
+		}
+		if (!result.isSuccess()) {
+			return SweepStatus.ERROR;
+		}
+
+		double apogee = result.getApogee();
+		boolean inRange = apogee >= targetApogee && apogee <= targetApogee + tolerance;
+		if (!inRange) {
+			return SweepStatus.OUT_OF_RANGE;
+		}
+
+		boolean failsGLOM = maxGLOM != null && result.getLaunchMass() > maxGLOM;
+		boolean failsTWR = minTWR != null && result.getTwr() < minTWR;
+
+		if (failsGLOM && failsTWR) {
+			return SweepStatus.FILTERED_BOTH;
+		}
+		if (failsGLOM) {
+			return SweepStatus.FILTERED_GLOM;
+		}
+		if (failsTWR) {
+			return SweepStatus.FILTERED_TWR;
+		}
+
+		return SweepStatus.PASS;
 	}
 
 	public MotorSweepResult getBestResult() {

@@ -29,17 +29,32 @@ public class MotorSweepWorker extends SwingWorker<List<MotorSweepResult>, Void> 
 	private final SweepCallback callback;
 	private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
+	private final Double maxGLOM;
+	private final Double minTWR;
+	private final boolean autoFillBallast;
+	private final double targetStabilityCaliber;
+
 	public MotorSweepWorker(OpenRocketDocument document, Rocket rocket,
-			List<ThrustCurveMotor> motors, SweepCallback callback) {
+			List<ThrustCurveMotor> motors, SweepCallback callback,
+			Double maxGLOM, Double minTWR,
+			boolean autoFillBallast, double targetStabilityCaliber) {
 		this.document = document;
 		this.rocket = rocket;
 		this.motors = motors;
 		this.callback = callback;
+		this.maxGLOM = maxGLOM;
+		this.minTWR = minTWR;
+		this.autoFillBallast = autoFillBallast;
+		this.targetStabilityCaliber = targetStabilityCaliber;
 	}
 
 	@Override
 	protected List<MotorSweepResult> doInBackground() {
 		MotorSweepRunner runner = new MotorSweepRunner();
+		runner.setMaxGLOM(maxGLOM);
+		runner.setMinTWR(minTWR);
+		runner.setAutoFillBallast(autoFillBallast);
+		runner.setTargetStabilityCaliber(targetStabilityCaliber);
 
 		MotorSweepProgressListener listener = new MotorSweepProgressListener() {
 			@Override
