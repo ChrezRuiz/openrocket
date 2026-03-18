@@ -3,6 +3,7 @@ package info.openrocket.swing.gui.dialogs.motorsweep;
 import java.awt.Window;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -52,6 +53,12 @@ public class MotorSweepDialog extends JDialog {
 
 	private MotorSweepWorker worker;
 
+	private JButton applyButton;
+	private List<MotorSweepResult> lastResults;
+	private MotorSweepSummary lastSummary;
+	private double lastTargetApogee;
+	private double lastTolerance;
+
 	public MotorSweepDialog(OpenRocketDocument document, Window parent) {
 		super(parent, "Motor Sweep", ModalityType.APPLICATION_MODAL);
 		this.document = document;
@@ -64,7 +71,7 @@ public class MotorSweepDialog extends JDialog {
 		mainPanel.add(inputPanel, "growx, wrap");
 
 		// Controls
-		JPanel controlPanel = new JPanel(new MigLayout("ins 0", "[][][][grow]", ""));
+		JPanel controlPanel = new JPanel(new MigLayout("ins 0", "[][][][][][grow]", ""));
 		runButton = new JButton("Run Sweep");
 		cancelButton = new JButton("Cancel");
 		cancelButton.setEnabled(false);
@@ -72,8 +79,13 @@ public class MotorSweepDialog extends JDialog {
 		progressBar.setStringPainted(true);
 		statusLabel = new JLabel(" ");
 
+		applyButton = new JButton("Apply Motor...");
+		applyButton.setEnabled(false);
+		applyButton.addActionListener(e -> openApplyDialog());
+
 		controlPanel.add(runButton);
 		controlPanel.add(cancelButton);
+		controlPanel.add(applyButton);
 		controlPanel.add(progressBar, "wmin 200lp, growx");
 		controlPanel.add(statusLabel, "growx");
 		mainPanel.add(controlPanel, "growx, wrap");
@@ -182,8 +194,41 @@ public class MotorSweepDialog extends JDialog {
 	private void displayResults(List<MotorSweepResult> results, double targetApogee, double tolerance) {
 		MotorSweepSummary summary = MotorSweepSummary.compute(results, targetApogee, tolerance);
 
+		lastResults = results;
+		lastSummary = summary;
+		lastTargetApogee = targetApogee;
+		lastTolerance = tolerance;
+
 		summaryPanel.updateSummary(summary, targetApogee);
 		scatterPanel.updateChart(results, targetApogee, tolerance, summary);
 		tablePanel.setResults(results, targetApogee, tolerance);
+
+		applyButton.setEnabled(summary.getPassingCount() > 0);
+	}
+
+	private void openApplyDialog() {
+		if (lastResults == null || lastSummary == null) {
+			return;
+		}
+
+		// Filter to passing + successful results
+		List<MotorSweepResult> passingResults = new ArrayList<>();
+		for (MotorSweepResult r : lastResults) {
+			if (!r.isSuccess()) {
+				continue;
+			}
+			double apogee = r.getApogee();
+			if (apogee >= lastTargetApogee && apogee <= lastTargetApogee + lastTolerance) {
+				passingResults.add(r);
+			}
+		}
+
+		if (passingResults.isEmpty()) {
+			return;
+		}
+
+		ApplySweepResultDialog dialog = new ApplySweepResultDialog(
+				this, rocket, passingResults, lastSummary.getBestResult());
+		dialog.setVisible(true);
 	}
 }
