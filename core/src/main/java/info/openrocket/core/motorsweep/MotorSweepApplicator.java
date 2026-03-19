@@ -6,11 +6,14 @@ import java.util.List;
 
 import info.openrocket.core.motor.MotorConfiguration;
 import info.openrocket.core.motor.ThrustCurveMotor;
+import info.openrocket.core.rocketcomponent.BodyTube;
 import info.openrocket.core.rocketcomponent.FlightConfiguration;
 import info.openrocket.core.rocketcomponent.FlightConfigurationId;
+import info.openrocket.core.rocketcomponent.MassComponent;
 import info.openrocket.core.rocketcomponent.MotorMount;
 import info.openrocket.core.rocketcomponent.Rocket;
 import info.openrocket.core.rocketcomponent.RocketComponent;
+import info.openrocket.core.rocketcomponent.position.AxialMethod;
 
 /**
  * Stateless service for applying a motor sweep result back into a rocket's
@@ -145,4 +148,82 @@ public final class MotorSweepApplicator {
 		return ApplyResult.success("Motor " + motor.getDesignation()
 				+ " applied to existing configuration", existingFcid);
 	}
+
+	/**
+	 * Check whether a sweep result carries ballast data.
+	 */
+	public static boolean hasBallastData(MotorSweepResult result) {
+		return result.getBallastMass() > 0.0
+				&& !Double.isNaN(result.getBallastPosition());
+	}
+
+	/**
+	 * Find an existing MassComponent named "Sweep Ballast" in the rocket.
+	 * Returns null if none exists.
+	 */
+	public static MassComponent findExistingSweepBallast(Rocket rocket) {
+		Iterator<RocketComponent> it = rocket.iterator(true);
+		while (it.hasNext()) {
+			RocketComponent c = it.next();
+			if (c instanceof MassComponent
+					&& SWEEP_BALLAST_NAME.equals(c.getName())) {
+				return (MassComponent) c;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Apply a ballast MassComponent to the rocket at the given position.
+	 *
+	 * @param rocket           the rocket to modify
+	 * @param ballastMass      ballast mass in kg
+	 * @param ballastPosition  absolute axial position from nose in metres
+	 * @param replaceExisting  if true, remove any existing "Sweep Ballast" first
+	 * @return result indicating success or failure
+	 */
+	public static ApplyResult applyBallast(Rocket rocket, double ballastMass,
+			double ballastPosition, boolean replaceExisting) {
+		if (rocket == null) {
+			return ApplyResult.error("Rocket is null");
+		}
+		if (ballastMass <= 0) {
+			return ApplyResult.error("Ballast mass must be positive");
+		}
+		if (Double.isNaN(ballastPosition)) {
+			return ApplyResult.error("Ballast position is undefined");
+		}
+
+		if (replaceExisting) {
+			MassComponent existing = findExistingSweepBallast(rocket);
+			if (existing != null) {
+				RocketComponent parent = existing.getParent();
+				if (parent != null) {
+					parent.removeChild(existing);
+				}
+			}
+		}
+
+		BodyTube parentTube = MotorSweepRunner.findBodyTubeAt(
+				rocket, ballastPosition);
+		if (parentTube == null) {
+			return ApplyResult.error(
+					"No body tube found at ballast position");
+		}
+
+		// Nominal length of 0.01 m for display; radius matches tube interior.
+		MassComponent ballast = new MassComponent(
+				0.01, parentTube.getInnerRadius(), ballastMass);
+		ballast.setName(SWEEP_BALLAST_NAME);
+		ballast.setAxialMethod(AxialMethod.ABSOLUTE);
+		ballast.setAxialOffset(ballastPosition);
+		parentTube.addChild(ballast);
+
+		return ApplyResult.success(
+				String.format("Ballast %.1f g applied at %.1f mm",
+						ballastMass * 1000.0, ballastPosition * 1000.0),
+				null);
+	}
+
+	private static final String SWEEP_BALLAST_NAME = "Sweep Ballast";
 }

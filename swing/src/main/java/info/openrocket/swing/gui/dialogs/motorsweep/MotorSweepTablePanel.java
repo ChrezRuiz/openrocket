@@ -2,6 +2,9 @@ package info.openrocket.swing.gui.dialogs.motorsweep;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.event.InputEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -14,6 +17,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JToggleButton;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -49,6 +53,7 @@ public class MotorSweepTablePanel extends JPanel {
 	private final JTable table;
 	private final JToggleButton passOnlyToggle;
 	private final JButton exportButton;
+	private final MotorSweepProfilePanel profilePanel;
 
 	public MotorSweepTablePanel() {
 		super(new MigLayout("fill, ins 0"));
@@ -73,8 +78,32 @@ public class MotorSweepTablePanel extends JPanel {
 		});
 		exportButton.addActionListener(e -> exportCsv());
 
+		profilePanel = new MotorSweepProfilePanel();
+
 		JScrollPane scrollPane = new JScrollPane(table);
-		add(scrollPane, "grow, push");
+		JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
+				scrollPane, profilePanel);
+		splitPane.setResizeWeight(0.55);
+		splitPane.setOneTouchExpandable(true);
+		add(splitPane, "grow, push");
+
+		table.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				int viewRow = table.rowAtPoint(e.getPoint());
+				if (viewRow < 0) {
+					return;
+				}
+				int modelRow = table.convertRowIndexToModel(viewRow);
+				MotorSweepResult result = tableModel.displayResults.get(modelRow);
+
+				if ((e.getModifiersEx() & InputEvent.CTRL_DOWN_MASK) != 0) {
+					profilePanel.addOverlay(result);
+				} else {
+					profilePanel.setResult(result);
+				}
+			}
+		});
 	}
 
 	public void setResults(List<MotorSweepResult> results, double targetApogee,
