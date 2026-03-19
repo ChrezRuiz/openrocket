@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export JAVA_HOME=\"/c/Program Files/Eclipse Adoptium/jdk-17.0.18.8-hotspot\")",
+      "Bash(./gradlew.bat checkstyleMain)",
+      "Bash(JAVA_HOME=\"/c/Program Files/Eclipse Adoptium/jdk-17.0.18.8-hotspot\" cd /c/orsweep)",
+      "Bash(JAVA_HOME=\"/c/Program Files/Eclipse Adoptium/jdk-17.0.18.8-hotspot\" ./gradlew.bat checkstyleMain)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Eclipse Adoptium/jdk-17.0.18.8-hotspot\" cd /c/orsweep)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Eclipse Adoptium/jdk-17.0.18.8-hotspot\" ./gradlew.bat checkstyleMain)",
+      "Bash(./gradlew.bat checkstyleMain --info)",
+      "Bash(export JAVA_HOME=\"C:\\\\Program Files\\\\Eclipse Adoptium\\\\jdk-17.0.18.8-hotspot\")",
+      "Bash(./gradlew.bat :core:test --tests \"info.openrocket.core.motorsweep.MotorSweepTableExportTest\")",
+      "Bash(export JAVA_HOME=\"C:/Program Files/Eclipse Adoptium/jdk-17.0.18.8-hotspot\")",
+      "Bash(./gradlew.bat checkstyleMain checkstyleTest)",
+      "Bash(./gradlew.bat :core:test --tests \"info.openrocket.core.motorsweep.*\")",
+      "Bash(find 'C:\\\\Users\\\\chrez\\\\Documents\\\\SRM Designer Project\\\\sweep-rocket-reference\\\\sweep-rocket-reference\\\\openrocket' -path */swing/src/test/* -type d)",
+      "Bash(./gradlew.bat build:*)"
+    ]
+  }
+}
