@@ -170,7 +170,7 @@ public class MotorSweepRunner {
 	/**
 	 * Find the body tube that contains the given axial position.
 	 */
-	static BodyTube findBodyTubeAt(Rocket rocket, double axialPosition) {
+	public static BodyTube findBodyTubeAt(Rocket rocket, double axialPosition) {
 		Iterator<RocketComponent> it = rocket.iterator(true);
 		while (it.hasNext()) {
 			RocketComponent c = it.next();

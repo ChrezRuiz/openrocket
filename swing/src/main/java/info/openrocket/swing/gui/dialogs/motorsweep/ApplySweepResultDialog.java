@@ -25,6 +25,8 @@ import net.miginfocom.swing.MigLayout;
 import info.openrocket.core.motor.ThrustCurveMotor;
 import info.openrocket.core.motorsweep.MotorSweepApplicator;
 import info.openrocket.core.motorsweep.MotorSweepResult;
+import info.openrocket.core.motorsweep.MotorSweepRunner;
+import info.openrocket.core.rocketcomponent.BodyTube;
 import info.openrocket.core.rocketcomponent.FlightConfiguration;
 import info.openrocket.core.rocketcomponent.FlightConfigurationId;
 import info.openrocket.core.rocketcomponent.MotorMount;
@@ -190,12 +192,57 @@ public class ApplySweepResultDialog extends JDialog {
 
 		if (applyResult.isSuccess()) {
 			applied = true;
+
+			if (MotorSweepApplicator.hasBallastData(result)) {
+				promptAndApplyBallast(result);
+			}
+
 			JOptionPane.showMessageDialog(this, applyResult.getMessage(),
 					"Motor Applied", JOptionPane.INFORMATION_MESSAGE);
 			dispose();
 		} else {
 			JOptionPane.showMessageDialog(this, applyResult.getMessage(),
 					"Error", JOptionPane.ERROR_MESSAGE);
+		}
+	}
+
+	private void promptAndApplyBallast(MotorSweepResult result) {
+		double ballastMass = result.getBallastMass();
+		double ballastPosition = result.getBallastPosition();
+		double stabilityCaliber = result.getStabilityCaliber();
+
+		BodyTube tube = MotorSweepRunner.findBodyTubeAt(
+				rocket, ballastPosition);
+		String tubeName = tube != null ? tube.getName() : "Unknown";
+
+		boolean duplicateExists =
+				MotorSweepApplicator.findExistingSweepBallast(rocket) != null;
+
+		ApplyBallastConfirmDialog ballastDialog =
+				new ApplyBallastConfirmDialog(this, ballastMass,
+						ballastPosition, tubeName, stabilityCaliber,
+						duplicateExists);
+		ballastDialog.setVisible(true);
+
+		ApplyBallastConfirmDialog.BallastAction action =
+				ballastDialog.getResult();
+
+		if (action == ApplyBallastConfirmDialog.BallastAction.CANCEL) {
+			return;
+		}
+
+		boolean replace = (action
+				== ApplyBallastConfirmDialog.BallastAction.REPLACE_EXISTING);
+
+		MotorSweepApplicator.ApplyResult ballastResult =
+				MotorSweepApplicator.applyBallast(
+						rocket, ballastMass, ballastPosition, replace);
+
+		if (!ballastResult.isSuccess()) {
+			JOptionPane.showMessageDialog(this,
+					"Failed to apply ballast: "
+							+ ballastResult.getMessage(),
+					"Ballast Error", JOptionPane.ERROR_MESSAGE);
 		}
 	}
 
