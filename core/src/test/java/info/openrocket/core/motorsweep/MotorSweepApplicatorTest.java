@@ -2,14 +2,19 @@ package info.openrocket.core.motorsweep;
 
 import java.util.List;
 
+import java.util.Iterator;
+
 import info.openrocket.core.motor.Manufacturer;
 import info.openrocket.core.motor.Motor;
 import info.openrocket.core.motor.ThrustCurveMotor;
 import info.openrocket.core.rocketcomponent.AxialStage;
 import info.openrocket.core.rocketcomponent.BodyTube;
 import info.openrocket.core.rocketcomponent.FlightConfigurationId;
+import info.openrocket.core.rocketcomponent.MassComponent;
 import info.openrocket.core.rocketcomponent.MotorMount;
 import info.openrocket.core.rocketcomponent.Rocket;
+import info.openrocket.core.rocketcomponent.RocketComponent;
+import info.openrocket.core.rocketcomponent.position.AxialMethod;
 import info.openrocket.core.util.BaseTestCase;
 import info.openrocket.core.util.Coordinate;
 import info.openrocket.core.util.CoordinateIF;
@@ -183,5 +188,125 @@ public class MotorSweepApplicatorTest extends BaseTestCase {
 
 		assertFalse(result.isSuccess());
 		assertNull(result.getAppliedConfigId());
+	}
+
+	// --- Ballast tests ---
+
+	@Test
+	public void testHasBallastDataTrue() {
+		ThrustCurveMotor motor = buildMotor("A8", new double[] { 5 });
+		MotorSweepResult result = MotorSweepResult.success(
+				motor, 300, 10, 20, 5.0, 0.5, 100, 10,
+				0.05, 0.10, 1.5);
+		assertTrue(MotorSweepApplicator.hasBallastData(result));
+	}
+
+	@Test
+	public void testHasBallastDataFalseZeroMass() {
+		ThrustCurveMotor motor = buildMotor("A8", new double[] { 5 });
+		MotorSweepResult result = MotorSweepResult.success(
+				motor, 300, 10, 20, 5.0, 0.5, 100, 10);
+		assertFalse(MotorSweepApplicator.hasBallastData(result));
+	}
+
+	@Test
+	public void testHasBallastDataFalseNaNPosition() {
+		ThrustCurveMotor motor = buildMotor("A8", new double[] { 5 });
+		MotorSweepResult result = MotorSweepResult.success(
+				motor, 300, 10, 20, 5.0, 0.5, 100, 10,
+				0.05, Double.NaN, 1.5);
+		assertFalse(MotorSweepApplicator.hasBallastData(result));
+	}
+
+	@Test
+	public void testApplyBallast() {
+		Rocket rocket = buildRocketWithMount();
+
+		// Position 0.10 is midpoint of the 0.20 m body tube
+		MotorSweepApplicator.ApplyResult result =
+				MotorSweepApplicator.applyBallast(rocket, 0.05, 0.10, false);
+
+		assertTrue(result.isSuccess());
+
+		MassComponent found = MotorSweepApplicator.findExistingSweepBallast(rocket);
+		assertNotNull(found);
+		assertEquals("Sweep Ballast", found.getName());
+		assertEquals(0.05, found.getComponentMass(), 0.001);
+		assertEquals(AxialMethod.ABSOLUTE, found.getAxialMethod());
+		assertEquals(0.10, found.getAxialOffset(), 0.001);
+	}
+
+	@Test
+	public void testApplyBallastReplaceExisting() {
+		Rocket rocket = buildRocketWithMount();
+
+		// Add initial ballast
+		MotorSweepApplicator.applyBallast(rocket, 0.03, 0.05, false);
+		assertNotNull(MotorSweepApplicator.findExistingSweepBallast(rocket));
+
+		// Replace with new ballast
+		MotorSweepApplicator.ApplyResult result =
+				MotorSweepApplicator.applyBallast(rocket, 0.07, 0.15, true);
+
+		assertTrue(result.isSuccess());
+
+		// Should only be one "Sweep Ballast"
+		int count = countSweepBallasts(rocket);
+		assertEquals(1, count);
+
+		MassComponent found = MotorSweepApplicator.findExistingSweepBallast(rocket);
+		assertEquals(0.07, found.getComponentMass(), 0.001);
+		assertEquals(0.15, found.getAxialOffset(), 0.001);
+	}
+
+	@Test
+	public void testApplyBallastAddSecond() {
+		Rocket rocket = buildRocketWithMount();
+
+		// Add initial ballast
+		MotorSweepApplicator.applyBallast(rocket, 0.03, 0.05, false);
+
+		// Add another without replacing
+		MotorSweepApplicator.ApplyResult result =
+				MotorSweepApplicator.applyBallast(rocket, 0.07, 0.15, false);
+
+		assertTrue(result.isSuccess());
+
+		// Should be two "Sweep Ballast" components
+		int count = countSweepBallasts(rocket);
+		assertEquals(2, count);
+	}
+
+	@Test
+	public void testFindExistingSweepBallast() {
+		Rocket rocket = buildRocketWithMount();
+		assertNull(MotorSweepApplicator.findExistingSweepBallast(rocket));
+
+		MotorSweepApplicator.applyBallast(rocket, 0.05, 0.10, false);
+		assertNotNull(MotorSweepApplicator.findExistingSweepBallast(rocket));
+	}
+
+	@Test
+	public void testApplyBallastNoBodyTube() {
+		Rocket rocket = buildRocketWithMount();
+
+		// Position 5.0 is well outside the 0.20 m body tube
+		MotorSweepApplicator.ApplyResult result =
+				MotorSweepApplicator.applyBallast(rocket, 0.05, 5.0, false);
+
+		assertFalse(result.isSuccess());
+	}
+
+	private static int countSweepBallasts(Rocket rocket) {
+		int count = 0;
+		Iterator<RocketComponent> it = rocket.iterator(true);
+		while (it.hasNext()) {
+			RocketComponent c = it.next();
+			if (c instanceof MassComponent
+					&& "Sweep Ballast".equals(c.getName())) {
+				count++;
+			}
+		}
+		return count;
 	}
 }

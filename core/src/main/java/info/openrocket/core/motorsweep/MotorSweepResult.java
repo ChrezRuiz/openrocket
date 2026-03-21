@@ -1,6 +1,7 @@
 package info.openrocket.core.motorsweep;
 
 import info.openrocket.core.motor.ThrustCurveMotor;
+import info.openrocket.core.simulation.FlightDataBranch;
 
 /**
  * Per-motor simulation result from a motor sweep.
@@ -23,12 +24,14 @@ public class MotorSweepResult {
 	private final double stabilityCaliber;
 	private final boolean infeasible;
 	private final String infeasibleReason;
+	private final FlightDataBranch flightDataBranch;
 
 	private MotorSweepResult(ThrustCurveMotor motor, double apogee, double totalImpulse,
 			double maxThrust, double twr, double launchMass, double maxVelocity,
 			double flightTime, boolean success, String errorMessage,
 			double ballastMass, double ballastPosition, double stabilityCaliber,
-			boolean infeasible, String infeasibleReason) {
+			boolean infeasible, String infeasibleReason,
+			FlightDataBranch flightDataBranch) {
 		this.motor = motor;
 		this.apogee = apogee;
 		this.totalImpulse = totalImpulse;
@@ -44,6 +47,7 @@ public class MotorSweepResult {
 		this.stabilityCaliber = stabilityCaliber;
 		this.infeasible = infeasible;
 		this.infeasibleReason = infeasibleReason;
+		this.flightDataBranch = flightDataBranch;
 	}
 
 	public static MotorSweepResult success(ThrustCurveMotor motor, double apogee,
@@ -51,7 +55,7 @@ public class MotorSweepResult {
 			double maxVelocity, double flightTime) {
 		return new MotorSweepResult(motor, apogee, totalImpulse, maxThrust, twr,
 				launchMass, maxVelocity, flightTime, true, null,
-				0.0, Double.NaN, Double.NaN, false, null);
+				0.0, Double.NaN, Double.NaN, false, null, null);
 	}
 
 	public static MotorSweepResult success(ThrustCurveMotor motor, double apogee,
@@ -60,21 +64,32 @@ public class MotorSweepResult {
 			double ballastMass, double ballastPosition, double stabilityCaliber) {
 		return new MotorSweepResult(motor, apogee, totalImpulse, maxThrust, twr,
 				launchMass, maxVelocity, flightTime, true, null,
-				ballastMass, ballastPosition, stabilityCaliber, false, null);
+				ballastMass, ballastPosition, stabilityCaliber, false, null, null);
+	}
+
+	public static MotorSweepResult success(ThrustCurveMotor motor, double apogee,
+			double totalImpulse, double maxThrust, double twr, double launchMass,
+			double maxVelocity, double flightTime,
+			double ballastMass, double ballastPosition, double stabilityCaliber,
+			FlightDataBranch flightDataBranch) {
+		return new MotorSweepResult(motor, apogee, totalImpulse, maxThrust, twr,
+				launchMass, maxVelocity, flightTime, true, null,
+				ballastMass, ballastPosition, stabilityCaliber, false, null,
+				flightDataBranch);
 	}
 
 	public static MotorSweepResult error(ThrustCurveMotor motor, String errorMessage) {
 		return new MotorSweepResult(motor, Double.NaN, motor.getTotalImpulseEstimate(),
 				motor.getMaxThrustEstimate(), Double.NaN, Double.NaN, Double.NaN,
 				Double.NaN, false, errorMessage,
-				0.0, Double.NaN, Double.NaN, false, null);
+				0.0, Double.NaN, Double.NaN, false, null, null);
 	}
 
 	public static MotorSweepResult infeasible(ThrustCurveMotor motor, String reason) {
 		return new MotorSweepResult(motor, Double.NaN, motor.getTotalImpulseEstimate(),
 				motor.getMaxThrustEstimate(), Double.NaN, Double.NaN, Double.NaN,
 				Double.NaN, false, null,
-				0.0, Double.NaN, Double.NaN, true, reason);
+				0.0, Double.NaN, Double.NaN, true, reason, null);
 	}
 
 	public ThrustCurveMotor getMotor() {
@@ -135,6 +150,14 @@ public class MotorSweepResult {
 
 	public String getInfeasibleReason() {
 		return infeasibleReason;
+	}
+
+	public FlightDataBranch getFlightDataBranch() {
+		return flightDataBranch;
+	}
+
+	public boolean hasFlightData() {
+		return flightDataBranch != null;
 	}
 
 	/**

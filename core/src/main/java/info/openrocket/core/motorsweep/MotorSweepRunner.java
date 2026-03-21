@@ -30,6 +30,7 @@ import info.openrocket.core.rocketcomponent.Rocket;
 import info.openrocket.core.rocketcomponent.RocketComponent;
 import info.openrocket.core.rocketcomponent.position.AxialMethod;
 import info.openrocket.core.simulation.FlightData;
+import info.openrocket.core.simulation.FlightDataBranch;
 import info.openrocket.core.simulation.exception.SimulationException;
 import info.openrocket.core.util.CoordinateIF;
 
@@ -170,7 +171,7 @@ public class MotorSweepRunner {
 	/**
 	 * Find the body tube that contains the given axial position.
 	 */
-	static BodyTube findBodyTubeAt(Rocket rocket, double axialPosition) {
+	public static BodyTube findBodyTubeAt(Rocket rocket, double axialPosition) {
 		Iterator<RocketComponent> it = rocket.iterator(true);
 		while (it.hasNext()) {
 			RocketComponent c = it.next();
@@ -354,6 +355,9 @@ public class MotorSweepRunner {
 					return MotorSweepResult.error(motor, "No flight data returned");
 				}
 
+				FlightDataBranch branch = data.getBranchCount() > 0
+						? data.getBranch(0) : null;
+
 				double apogee = data.getMaxAltitude();
 				double maxVelocity = data.getMaxVelocity();
 				double flightTime = data.getFlightTime();
@@ -363,7 +367,7 @@ public class MotorSweepRunner {
 
 				return MotorSweepResult.success(motor, apogee, totalImpulse,
 						maxThrust, twr, launchMass, maxVelocity, flightTime,
-						ballastMass, ballastPosition, stabilityCaliber);
+						ballastMass, ballastPosition, stabilityCaliber, branch);
 
 			} catch (SimulationException e) {
 				log.debug("Simulation failed for motor "

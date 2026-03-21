@@ -126,7 +126,7 @@ public class MotorSweepDialog extends JDialog {
 		});
 
 		setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-		setSize(900, 700);
+		setSize(1200, 700);
 		setLocationRelativeTo(parent);
 	}
 
