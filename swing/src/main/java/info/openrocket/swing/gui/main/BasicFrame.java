@@ -839,6 +839,21 @@ private static final Translator trans = Application.getTranslator();
 		});
 		toolsMenu.add(item);
 
+		////	Parachute Sweep
+		item = new JMenuItem("Parachute Sweep...", KeyEvent.VK_U);
+		item.getAccessibleContext().setAccessibleDescription(
+				"Sweep parachute types and diameters to find optimal recovery");
+		item.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				log.info(Markers.USER_MARKER, "Parachute sweep selected");
+				new info.openrocket.swing.gui.dialogs.parachutesweep
+						.ParachuteSweepDialog(document, BasicFrame.this)
+						.setVisible(true);
+			}
+		});
+		toolsMenu.add(item);
+
 		////	Custom expressions
 		item = new JMenuItem(trans.get("main.menu.tools.customExpressions"), KeyEvent.VK_E);
 		item.getAccessibleContext().setAccessibleDescription(trans.get("main.menu.tools.customExpressions.desc"));
