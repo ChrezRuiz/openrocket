@@ -70,6 +70,7 @@ open module info.openrocket.core {
 	exports info.openrocket.core.models.wind;
 	exports info.openrocket.core.motor;
 	exports info.openrocket.core.motorsweep;
+	exports info.openrocket.core.parachutesweep;
 	exports info.openrocket.core.optimization.general;
 	exports info.openrocket.core.optimization.general.multidim;
 	exports info.openrocket.core.optimization.general.onedim;
