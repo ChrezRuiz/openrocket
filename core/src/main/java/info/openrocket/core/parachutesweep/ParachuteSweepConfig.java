@@ -36,6 +36,26 @@ public class ParachuteSweepConfig {
 			double minDiameter, double maxDiameter, double diameterStep,
 			Set<ParachuteType> selectedTypes, double mass, double airDensity,
 			Double customCd) {
+		if (minDiameter >= maxDiameter) {
+			throw new IllegalArgumentException(
+					"minDiameter must be less than maxDiameter");
+		}
+		if (diameterStep <= 0) {
+			throw new IllegalArgumentException(
+					"diameterStep must be positive");
+		}
+		if (mass <= 0) {
+			throw new IllegalArgumentException("mass must be positive");
+		}
+		if (airDensity <= 0) {
+			throw new IllegalArgumentException(
+					"airDensity must be positive");
+		}
+		if (selectedTypes == null || selectedTypes.isEmpty()) {
+			throw new IllegalArgumentException(
+					"selectedTypes must not be null or empty");
+		}
+
 		this.targetDescentRate = targetDescentRate;
 		this.descentRateTolerance = descentRateTolerance;
 		this.minDiameter = minDiameter;

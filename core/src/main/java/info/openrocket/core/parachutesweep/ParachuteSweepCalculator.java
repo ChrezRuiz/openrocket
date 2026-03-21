@@ -21,6 +21,7 @@ public class ParachuteSweepCalculator {
 	 */
 	public List<ParachuteSweepResult> calculate(ParachuteSweepConfig config) {
 		List<ParachuteSweepResult> results = new ArrayList<>();
+		List<Double> diameters = generateDiameters(config);
 
 		for (ParachuteType type : config.getSelectedTypes()) {
 			double cd;
@@ -35,9 +36,7 @@ public class ParachuteSweepCalculator {
 				cd = type.getDefaultCd();
 			}
 
-			for (double diameter = config.getMinDiameter();
-					diameter <= config.getMaxDiameter() + config.getDiameterStep() * 0.001;
-					diameter += config.getDiameterStep()) {
+			for (double diameter : diameters) {
 				double radius = diameter / 2.0;
 				double area = Math.PI * radius * radius;
 
@@ -67,10 +66,29 @@ public class ParachuteSweepCalculator {
 
 	private void addErrorsForType(List<ParachuteSweepResult> results,
 			ParachuteType type, ParachuteSweepConfig config, String message) {
-		for (double diameter = config.getMinDiameter();
-				diameter <= config.getMaxDiameter() + config.getDiameterStep() * 0.001;
-				diameter += config.getDiameterStep()) {
+		List<Double> diameters = generateDiameters(config);
+		for (double diameter : diameters) {
 			results.add(ParachuteSweepResult.error(type, diameter, message));
 		}
+	}
+
+	/**
+	 * Generate the list of diameters to sweep using integer-based iteration
+	 * to avoid floating-point accumulation errors.
+	 *
+	 * @param config sweep configuration
+	 * @return list of diameters
+	 */
+	private static List<Double> generateDiameters(ParachuteSweepConfig config) {
+		int steps = (int) Math.round(
+				(config.getMaxDiameter() - config.getMinDiameter())
+						/ config.getDiameterStep());
+		List<Double> diameters = new ArrayList<>(steps + 1);
+		for (int i = 0; i <= steps; i++) {
+			double diameter = config.getMinDiameter()
+					+ i * config.getDiameterStep();
+			diameters.add(diameter);
+		}
+		return diameters;
 	}
 }

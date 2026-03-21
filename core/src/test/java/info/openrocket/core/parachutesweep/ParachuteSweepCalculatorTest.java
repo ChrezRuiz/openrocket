@@ -21,7 +21,7 @@ public class ParachuteSweepCalculatorTest {
 		//             = sqrt(19.6133 / 0.18038) = sqrt(108.73) = 10.427 m/s
 		ParachuteSweepConfig config = new ParachuteSweepConfig(
 				5.0, 1.0,     // target/tolerance (not used in calculator)
-				0.5, 0.5, 0.1, // min=max=0.5, step irrelevant
+				0.5, 0.6, 1.0, // single diameter at 0.5
 				Set.of(ParachuteType.FLAT_CIRCULAR),
 				1.0,          // mass
 				1.225,        // air density
@@ -87,7 +87,7 @@ public class ParachuteSweepCalculatorTest {
 	public void testCustomTypeWithValidCd() {
 		ParachuteSweepConfig config = new ParachuteSweepConfig(
 				5.0, 1.0,
-				0.5, 0.5, 0.1,
+				0.5, 0.6, 1.0,
 				Set.of(ParachuteType.CUSTOM),
 				1.0,
 				1.225,
@@ -124,7 +124,7 @@ public class ParachuteSweepCalculatorTest {
 	public void testResultFieldsPopulated() {
 		ParachuteSweepConfig config = new ParachuteSweepConfig(
 				5.0, 1.0,
-				0.5, 0.5, 0.1,
+				0.5, 0.6, 1.0,
 				Set.of(ParachuteType.FLAT_CIRCULAR),
 				2.5,
 				1.225,
